@@ -1,0 +1,65 @@
+Creating a report manually :
+
+DATA MODEL: 
+
+--->start Oracle Reports by clicking the Reports Builder  icon on your desktop. The welcome screen displays. Select the option Build a new report manually. Click OK.
+--->If Reports Builder is already open, create a new report by selecting File > New > Report  from the menu. 
+    In both cases, the Data Model view of the Report Editor displays. 
+--->Add a query to the data model by selecting Insert > Query  from the menu. This action invokes the Data Wizard. 
+--->For the data source, accept SQL Query  as the data source type by clicking Next.
+--->On the data source definition page, click Connect  to connect to the database. 
+
+In the Connect dialog box, enter appsread for the User Name, appsread for the Password, and the name of your database for the Database field.
+
+--->Fetch the appropriate table from the database.
+	 SQL Query:
+    select po_num, po_date, po_status, v_name, v_site, po_curr, po_amt, po_typ, buyr_name, Po_line_num, item_num, item_desc from XX32_PO_TABLE where v_name=:ou_name;
+
+-->A bind parameter is created.
+Navigation: Object navigator->User Parameters
+	Select SQL Query.
+	SQL Query: select distinct(v_name) from XX32_PO_TABLE;
+	Click on "Ok".	
+
+PAPER LAYOUT:
+
+-->Once your data model is complete, you need to create a layout for the data objects to display in the report output.
+-->Design the report based on the user requirement and save the report(XX32_PO_REPORT.rdf).
+
+WINSCP:
+
+-->go to winscp, copy the file from the local machine to server and save the report.
+
+ORACLE APPLICATION:
+
+-->Create Executable: Link it to Report file(.rdf) created
+Navigation: Login into Oracle Applications –> Go to Application Developer Responsibility –> Concurrent –> Executable.
+	
+	Executable	   :XX32_PO
+	Short name	   :xx32_po
+	Application	   :
+	Execution method   :oracle reports
+	Execution file name:xx32_po_report
+
+-->After Developing a report to register as a concurrent program.
+Navigation: Application Developer –> Concurrent –> Program
+	Program		   :xx32_po_prgm
+	short name	   :xx32_po_prgm
+	Application	   :                
+Click on Parameters then enter the following details:
+	Program		   :xx32_po_prgm
+	Application	   :
+	Sequence No 	   :1
+	Parameter	   :ou_name
+	valueset	   :po_valueset
+	Default type	   :constant
+	token	           :ou_name
+-->Create Concurrent Program: Link to it executable defined in previous step
+-->Enter Parameters and link Value Sets
+-->Assign the registered Concurrent Program to a request group
+Navigation: Switch to "System Administrator" Responsibility –> Security –> Responsibility –> Request
+Action: Enter Your User Readable Name of your concurrent program
+Action: Save
+Now Your Concurrent Program is ready to use from the responsibilities having "Purchasing Reports" as Request Group.
+
+

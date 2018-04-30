@@ -1,0 +1,351 @@
+XXCU_ONT_CREATE_ORDER_PKG
+
+9-p
+19-f
+
+1procedure     : createorder  				This procedure is used to call the other two procedures which will insert data into order header and order line respectively.
+2procedure     : create_lm_order			used to insert shipment data for LM into custom tables++++++++++
+3Function      : create_rettbetalt_lines   			Create lines for rettbetalt return orders++++++++
+
+xx4procedure    : submit_notification_report		Send Notification to Credit Department about the list of customers failing credit limit
+
+5Procedure     : submit_release_hold_report    		Submits PB Release Holds(P) Concurrent Program ++++++
+6Function     : insert_invoice_spec_p   			 inserts the records in invoice specification tables ++++++
+
+7Function      : createorderline_interface 		 Will  create an orderline if the item exists on the spesific header_id wich is inparameter.
+8Function      : createorderhead_interface   		 creates the ordreheader, called from the function createorder. Uses necesary fields to create the header.
+
+9 function           : get_currencycode   			 Get the invoice currency code++++++++++
+
+10Procedure      : reconciliation    			This function will update the custom table with all updated information at header and line level++++
+11Procedure      : initialize_variables			 Initialize context and variables++++++++
+
+12 Function      : getheader_id				Returns the order header id ++++++++++
+13Procedure    : getpayment_term 			Returns Payment Term ID+++++++++++++
+14Function      : getinventory_item_id			Returns the inventory item id+++++++++++++
+15Function      : getinventory_number			Returns the inventory item number+++++++
+16Function      : get_transaction_type_id 			Returns the transaction_type_id for order type++++++++++
+17Function      : getcustomer_id			Returns the Customer Account ID++++++++
+
+xx18 Function    : getline_id_source_exists
+
+
+19Function      : getline_id				Returns the Order Line ID+++++++++
+
+
+xx20 Function    : getblanketnumber
+
+
+21Function      : getsiteuseid				Returns the Site Use Id++++++++++++
+
+
+xx22Function    : getOrderTypeId  - oe_order_types_v
+
+
+23 Function      : getordersourceid 			Returns the Order Source Id+++++++++
+24Function      : getpricelistid				Returns the Price List Id+++++++++
+25Function      : get_orig_sys_document_ref		Returns the Order Reference++++++++++
+26Procedure     : submit_order_import_request		Submits Order Import Request++++++++++
+27 Procedure    : update_batch_status			Updates Batch Status in XXCU_ONT_INT_ORDER_BATCH +++++
+28Function     : get_config_value			Returns the configuration values+++++
+
+
+create order
+==========
+xxcu_log_pkg.log (p_log_level => fnd_log.level_statement, p_module_name => gpackagename, p_log_text => 'Number of order headers: ' || p_batch_order.v_order_head.count );
+ego_attr_groups_v ------------application_id,attr_group_id,attr_group_type
+x_person_cust_obj_tbl
+applsys.fnd_lookup_values
+hz_cust_accounts ------cust_account_id,object_version_number,party_id,account_number
+oe_headers_iface_all--------orig_sys_document_ref, org_id  
+applsys.fnd_responsibility_tl ---responsibility_id, application_id, responsibility_name,language
+ fnd_global.apps_initialize (user_id => g_user_id, resp_id => ln_resp_id, resp_appl_id => ln_appl_id );
+mo_global.set_policy_context ('S', p_batch_order.v_order_head (hi).org_id);
+ar.hz_parties ---------object_version_number,party_id
+hz_person_profiles-------person_profile_id,
+hz_cust_accounts----	party_id
+hz_per_profiles_ext_b--extension_id,person_profile_id
+fnd_file.put_line(fnd_file.LOG,g_message)----This is to print the message in your concurrent program's Log File,whatever the value you are assigning to g_message, will be printed in Log file.
+fnd_profile_options_vl --profile_option_id
+fnd_profile_option_values---profile_option_name,profile_option_value,profile_option_id
+ra_terms----term_id, name
+oe_headers_iface_all-----payment_term_id,sold_to_org_id,orig_sys_document_ref,org_id
+zx_rates_b---tax_rate_code,effective_to,active_flag
+fnd_lookup_values_vl--tag,lookup_type,lookup_code.end_date_active.enabled_flag
+hr_operating_units---set_of_books_id
+gl_sets_of_books-currency_code,set_of_books_id
+oe_order_headers_all-------pricing_date,orig_sys_document_ref,org_id
+xxcu_interface_specifications----insert into
+xxcu.xxcu_interface_spec_ref---inssert into
+xxcu_intf_discount_spec----insert into
+fnd_profile_options_vl---profile_option_value
+applsys.fnd_profile_option_values
+oe_lines_iface_all-payment_term_id,,sold_to_org_id,orig_sys_document_ref,org_id
+hz_cust_accounts----account_number
+oe_headers_iface_all---error_flag
+oe_processing_msgs---insert into
+oe_processing_msgs_tl---insert into
+fnd_new_messages---message_text
+oe_transaction_types_all-----tax_calculation_event_code,transaction_type_id
+oe_price_adjs_iface_all---error_flag,orig_sys_line_ref
+fnd_languages---
+fnd_flex_value_sets
+fnd_flex_values
+mtl_system_items_b--1
+oe_order_headers_all-1(l_order_count)
+fnd_territories--l_country_codes
+oe_order_sources---name
+
+hz_cust_accounts----party_type
+hz_parties 
+applsys.fnd_profile_options
+applsys.fnd_profile_option_values
+fnd_concurrent_requests--phase_code,status_code,request_id
+
+fnd_languages
+oe_transaction_types_all
+
+create LM order   i/p-p_batch_order,p_shipment_order
+============
+fnd_user -user_id,user_name
+
+insert values----
+	xxcu_oe_shipment_spec
+	xxcu_oe_package_spec
+	xxcu_oe_priceline_spec
+oe_lines_iface_all
+
+
+create_rettbetalt_lines   i/p-p_order_head_rec,p_order_line_rec,p_pricing_date,p_status_code          o/p-p_error_message
+==================
+oe_order_lines_all ---orig_sys_document_ref
+fnd_lookup_values ------lookup_code,lookup_type
+oe_lines_iface_all -(insert )
+xxcu_interface_specifications (insert)
+userenv('LANG') - returns info abt currnt session , here it returns current session language
+
+submit_release_hold_report -- p_batch_id,p_org_id
+======================
+fnd_request.submit_request -is an api used to submit concurrent prgm in oracle application
+fnd_concurrent.wait_for_request - waits for the request completion and returns the status after completion
+
+
+insert_invoice_spec_p  i/p- p_order_head_rec, p_order_line_rec, p_inv_spec_rec,p_orig_sys_document_ref, p_line_number,  p_status_code          o/p-p_error_message
+=================
+xxcu_intf_spec_lines (insert) oly (.........IF(p_order_line_rec.speclines.count>0)...........)
+
+
+createorderhead_interface
+====================
+hr_operating_units
+xxcu_int_init_app_logons
+hz_cust_accounts
+oe_order_headers_all
+hr_operating_units
+gl_sets_of_books
+oe_order_headers_all-transactional_curr_code
+fnd_flex_value_sets
+fnd_flex_values
+fnd_descr_flex_contexts_vl
+oe_transaction_types_v
+ra_cust_trx_types_all
+fnd_profile_option_values
+fnd_profile_options_vl-profile_option_name
+fnd_user
+fnd_application
+fnd_responsibility
+fnd_nodes
+fnd_currencies-currency_code
+oe_blanket_headers_all-order_number
+oe_order_headers_all
+oe_transaction_types_all
+hz_cust_acct_sites_all
+hz_cust_accounts
+hz_parties
+oe_headers_iface_all
+fnd_responsibility_vl
+ar_receipt_method_accounts_all
+ar_receipt_methods
+ce.ce_bank_accounts
+ce.ce_bank_acct_uses_all
+
+ar_prepayments_pub.create_prepayment
+ar_receivable_applications_all-payment_set_id
+ont.oe_payments_iface_all
+
+
+createorderline_interface
+====================
+oe_transaction_types_all - warehouse_id, transaction_type_id
+fnd_flex_value_sets
+fnd_flex_values
+hr_operating_units - name
+xxcu_int_init_app_logons - userid
+apps.fnd_lookup_values -lookup_code language,meaning,lookup_type
+userenv('LANG') - returns info abt currnt session , here it returns current session language
+oe_order_headers_all - header_id
+oe_order_lines_all
+zx_rates_b- tax_rate_code,effective_to,active_flag
+fnd_lookup_values_vl - tag,lookup_type,lookup_code,end_date_active,enabled_flag
+fnd_descr_flex_contexts_vl - descriptive_flex_context_name,descriptive_flexfield_name
+mtl_system_items-item_type,primary_uom_code
+ oe_order_lines_all-salesrep_id, jtf.jtf_rs_salesreps
+fnd_territories_vl- territory_code
+hr_operating_units - currency_code
+oe_headers_iface_all- attribute15,transactional_curr_code
+gl_daily_rates-conversion_rate
+
+oe_headers_iface_all
+oe_lines_iface_all
+oe_price_adjs_iface_all
+oe_processing_msgs
+oe_processing_msgs_tl
+fnd_new_messages
+fnd_languages
+qp_list_headers_all- list_header_id, list_line_id
+qp_secu_list_headers_vl - description
+fnd_lookup_values_vl-lookup_code
+
+get_currencycode   i/p- cust_id , org_id   o/p- curr_code(varchar2)
+===========
+hz_cust_acct_sites_all --------attribute10,org_id,cust_account_id,status,bill_to_flag
+hz_parties---party_id
+hz_cust_accounts
+
+reconciliation  i/p -cols in cust table o/p- finish_status(t/f)boolean
+===========
+xxcu.xxcu_ont_int_order_batch ( update else insert)
+
+initialize_variables           i/p- org_id
+================
+hr_operating_units  - name
+xxcu_int_init_app_logons  -- userid, resp_id , resp_appl_id, procedure_name, operating unit name
+fnd_global.apps_initialize (ln_user_id, ln_resp_id, ln_resp_appl_id)
+mo_global.set_policy_context('S',g_org_id);
+oe_msg_pub.initialize; 
+
+mo_global.set_policy_context--is used to set your session to work against a specific org.This procedure has two parameters:
+(p_access_mode,p_org_id)
+p_access_mode
+Pass a value "S" in case you want your current session to work against Single ORG_ID.
+Pass a value of "M" in case you want your current session to work against multiple ORG_ID's
+
+ 
+getheader_id   i/p -customer_no, order_reference no       o/p-version no
+==========
+oe_order_headers----header_id,version_number,sold_to_org_id=cus_no ,orig_sys_document_ref=ref_no ,org_id
+
+
+getpayment_term  -- i/p-Currency Code,org_id,Sales Agreement Number,cust_id
+===========
+ra_terms
+oe_blanket_headers_all  --payment_term_id, sold_to_org_id,order_type_id,order_number,org_id,flow_status_code,transactional_curr_code
+oe_blanket_headers_ext---order_number
+fnd_flex_values--                flex_value_set_id,attribute1,flex_value,attribute13,enabled_flag
+fnd_flex_value_sets--         flex_value_set_name,flex_value_set_id
+oe_transaction_types_tl--  transaction_type_id,language,name
+hz_cust_accounts--             cust_account_id
+oe_price_lists_v ---             terms_id,price_list_id, end_date_active
+hz_cust_site_uses_all-       payment_term_id,site_use_id
+hz_customer_profiles-       standard_terms, cust_account_id, status , site_use_id
+
+
+getinventory_item_id          i/p-inventory_number,order_source,order_type,org_id
+==================
+fnd_flex_value_sets --
+fnd_flex_values -----attribute5
+oe_transaction_types_all --warehouse_id
+mtl_cross_references  ---inventory_item_id,cross_reference_type
+mtl_system_items_b---organization_id ,inventory_item_id, enabled_flag, end_date_active
+
+getinventory_number  i/p-Inventory Item ID,Operating Unit ID
+=================
+oe_transaction_types_all - warehouse_id,transaction_type_id
+mtl_system_items_b -segment1,inventory_item_id,organization_id
+
+get_transaction_type_id   i/p-p_order_source,p_order_type,p_org_id
+===================
+fnd_flex_value_sets
+fnd_flex_values_vl
+oe_transaction_types_tl -transaction_type_id,org_id ,transaction_type_code   o/p-x_status_code,x_error_message
+RA_CUST_TRX_TYPES_ALL - name
+
+getcustomer_id            i/p-Customer Account Number
+==============
+hz_cust_accounts  -  cust_account_id, account_number
+
+getline_id                i/p- p_header_id ,p_orig_sys_line_ref
+==========
+oe_order_lines_all --line_id,header_id,orig_sys_line_ref,order_source_id,org_id
+
+getsiteuseid    -- p_customer_id,p_site_use_code(BILL_TO or SHIP_TO),p_org_id
+===========
+hz_cust_acct_sites_all  ----site_use_id, cust_acct_site_id,cust_account_id,status,
+hz_cust_site_uses_all-----cust_acct_site_id,site_use_code,org_id,status 
+
+
+ getordersourceid       i/p-p_name : Order Source Name 
+================
+fnd_flex_value_sets---flex_value_set_name ,flex_value_set_id 
+fnd_flex_values  --- attribute1,flex_value, enabled_flag
+
+oe_order_sources---order_source_id , name, enabled_flag
+
+
+getpricelistid   i/p- P_name(cuurency_code)  exp-NULL
+===========
+oe_price_lists_v --price_list_id,currency_code
+
+
+get_orig_sys_document_ref  i/p header_id ----exp-NULL
+==================== 
+oe_order_headers_all --- orig_sys_document_ref,header_id
+
+Submits Order Import Request   i/p- batch id, org_sys_ref, operating-unit id(org_id)
+=================
+fnd_user  - user id
+fnd_responsibility_vl - respons id, application id, responsibility name
+fnd_global.apps_initialize - used to initialize the session before calling an api in ebs
+
+fnd_global.apps_initialize(g_user_id, ln_resp_id, ln_app_id);
+
+fnd_request.submit_request - is an api used to submit concurrent prgm in oracle application
+
+fnd_request.submit_request ( application => 'ONT' , program => 'OEOIMP' , argument1 => ln_org_id--
+
+
+
+xxcu_log_pkg.log (p_log_level => fnd_log.level_statement, 
+		p_module_name => gpackagename, 
+		p_log_text => 'To start the background process for order import. ' || l_req_id );
+xxcu_common_log_rt.msglog ('INFO', 'inside order import'||l_req_id, 1117, 1, 'xxcu_ont_create_order_parser BODY.parse_xmlmessage', 
+
+
+mo_global.init('ONT') - 
+mo_global.set_policy_context('S',ln_org_id)
+
+
+update_batch_status  i/p-batchid, status
+================
+ xxcu.xxcu_ont_int_order_batch - status, last_update_date(sysdate) , batch_id
+
+
+
+get_config_value  i/p- config_name
+============
+fnd_flex_values_vl -----description,flex_value_set_id,flex_value_set_name,flex_value
+fnd_flex_value_sets ----flex_value_set_id
+
+xxcu_log_pkg.log (    p_log_level => fnd_log.level_error, 
+		p_module_name => gpackagename, 
+		p_log_text => 'Fant ikke verdi i verdilisten til "' ||p_config_name ||'"' || ' :: Kontroler verdisettet XXCU_ONT_LM_CONFIG_VALUES eller parameteret:: ' );
+
+
+
+
+
+dbms_utility.format_error_backtrace - This procedure displays the call stack at the point where an exception was raised, 
+even if the procedure is called from an exception handler in an outer scope.
+
+
+

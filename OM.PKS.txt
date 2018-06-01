@@ -1,0 +1,1105 @@
+create or replace
+PACKAGE xxcu_ont_create_order_pkg
+  /* ===========================================================================================
+  -- Module         : ONT
+  -- Type           : PL/SQL - Package Body
+  -- Filename       : $XXCU_TOP/admin/sql/XXCU_ONT_CREATE_ORDER_PKG.pks
+  -- Author         : Rahul Kumar Singh
+  -- Version        : 1.16
+  -- Description    : Package to insert parsed order data from AQ XML to EBS interface tables(oe_headers_iface_all,oe_lines_iface_all,oe_price_adjs_iface_all.
+  -- History
+  Date           Name              Version        Description
+  23 Dec 2015   Rahul Kumar Singh     1.0            Initial Version - Inherited from PNAS
+  22 Feb 2016   Vedangi Bagwe         1.1            Added changes mentioned in AN100 and removed hard coding
+  15 Apr 2016   Vedangi Bagwe         1.2            Defect # 160 - Price List end date needs to be considered
+  26 Apr 2016   Vedangi Bagwe         1.3            Change artf4774289 added function get_currencycode
+  04 May 2016   Vedangi Bagwe         1.4            Modified for Defect# 187 added submit_notification_report,submit_release_hold_report
+  27 Jun 2016   Vedangi Bagwe         1.5            Modified for Defect# 949 OM: OM: Order Import + Reconciliation Report: Reconciliation Fields require update. Plus XML tags need to be in sync with AN.100
+  21 Jul 2016   Vedangi Bagwe         1.6            Modified for Change Request # 1092 PB Notification Report- Changes based on CRP Feedback
+  16 Sep 2016   Snehal Narkhede       1.7            Modified for CR1320 added paramerer source system to function getinventory_item_id and createorderline_interface
+  17 Nov 2016   Vedangi Bagwe         1.8            Modified for CR 2499 and defect 2454 - Commented submit_order_import_request
+  20.11.2016    Rahul Singh           1.9            Modified for Invoice Specification Chnages.If no Inv Spec Node then Donot Insert in Custom Table
+  08.12.2016    Kavita Chaurasia      1.10           Modified for Defect CR 2449
+  16.12.2016    Kavita Chaurasia      1.11           Modified for Defect#2848 made changes for return orde..if same OrderReference is used for 2 regular order and for 2 diff Operaing unit
+  11.03.2017    Vedangi Bagwe         1.12           Modified for defect 3310
+  04.08.2017    Divyansh saini        1.13           Modified for Incident# E2-IM013492120
+  28.09.2017    Vedangi Bagwe         1.14           Modified for wave 2
+  16.02.2018    Vedangi Bagwe         1.15           Modified for CR 4813
+  20.02.2018    Vedangi Bagwe         1.16           Modified for CR 4790
+  =============================================================================================== */
+  /*$Header: XXCU_ONT_CREATE_ORDER_PKG.pks 115.svn-rev yyyy/mm/dd mi:ss CustomizationManager noship $*/
+AS
+  k_log_module_prefix CONSTANT VARCHAR2(50) := 'xxcu.plsql.xxcu_ont_create_order_pkg';
+  g_intf_inv_spec_seq NUMBER; -- Added by Divyansh for Incident#E2-IM013492120
+  /* ----------------------------------------------------------------------------------------
+  * createorder
+  *
+  *   procedure     : createorder
+  *   description   : This procedure is used to call the other two procedures which will insert data into order header and order line respectively.
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batch_order : Batch details
+  *
+  *
+  *        in/out                : NA
+  *        out                   : p_status_code : Interface status code
+  *                              : p_error_message : Error Message if any
+  *
+  *  Date               Author              Description
+  *  -----------        -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+  PROCEDURE createorder(
+      p_batch_order IN xxcu_ont_create_order_parser.batch_order_rec,
+      --p_operating_unit  IN              xxcu_ont_create_order_parser.batch_order_rec.org_id,
+      p_status_code OUT NUMBER,
+      p_error_message OUT VARCHAR2 );
+
+
+
+
+
+
+
+  /* start wave 2 modification */
+  /* ----------------------------------------------------------------------------------------
+  * create_lm_order
+  *
+  *   procedure     : create_lm_order
+  *   description   : This procedure is used to insert shipment data for LM into custom tables
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batch_order : Batch details
+  : p_shipment_order : Shipment Details
+  *
+  *
+  *        in/out                : NA
+  *        out                   : p_status_code : Interface status code
+  *                              : p_error_message : Error Message if any
+  *
+  *  Date               Author              Description
+  *  -----------        -------------        -------------------------------------------------------
+  *  28.09.2017        Vedangi Bagwe          Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+PROCEDURE create_lm_order(
+      p_batch_order    IN xxcu_ont_create_order_parser.batch_order_rec,
+      p_shipment_order IN xxcu_ont_create_order_parser.shipment_order_rec,
+      p_org_id         IN NUMBER,
+      --p_operating_unit  IN              xxcu_ont_create_order_parser.batch_order_rec.org_id,
+      p_status_code OUT NUMBER,
+      p_error_message OUT VARCHAR2 );
+ 
+
+
+
+
+
+ /* ----------------------------------------------------------------------------------------
+  * create_rettbetalt_lines
+  *
+  *   Function      : create_rettbetalt_lines
+  *   description   : Create lines for rettbetalt return orders
+  *   scope         : public
+  *   arguments
+  *        in                    : p_order_head_rec : Order header details
+  *                                p_order_line_rec : Order Line details
+  *                                p_pricing_date   : Pricing Date of Order
+  *        in/out                : p_status_code : Interface status code
+  *
+  *        out                   : p_error_message : Error Message if any
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  07.11.2017        Vedangi Bagwe        Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+PROCEDURE create_rettbetalt_lines(
+      p_order_head_rec IN xxcu_ont_create_order_parser.orderhead_rec,
+      p_order_line_rec IN xxcu_ont_create_order_parser.orderline_rec,
+      p_pricing_date   IN DATE,
+      p_status_code    IN OUT NUMBER,
+      p_error_message OUT VARCHAR2 );
+
+
+
+
+
+
+
+
+
+  /* end wave 2 modification */
+  --Version 1.6
+  /*
+  /* ===========================================================================================
+  PROCEDURE    : submit_notification_report
+  Description : Send Notification to Credit Department about the list of customers failing credit limit
+  Created date: 04 May 2016
+  Author      : Vedangi Bagwe
+  Version     : 0.1
+  Changehistory
+  Date            Name         Veriosn        Description
+  04 May 2016   Vedangi Bagwe   0.1           Initial Version
+  =============================================================================================== */
+ 
+
+
+
+
+ PROCEDURE submit_notification_report(
+  P_BATCH_ID IN varchar2,
+  p_email_id IN VARCHAR2,
+  p_org_id   IN NUMBER );
+ 
+
+
+
+
+
+ */
+  /* start version 1.8 CR 2499  */
+  /* ----------------------------------------------------------------------------------------
+  * submit_release_hold_report
+  *
+  *   Procedure     : submit_release_hold_report
+  *   description   : Submits PB Release Holds(P) Concurrent Program
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batch_id : Batch ID
+  *                                p_org_id : Operating Unit ID
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author               Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  04.05.2016        Vedangi Bagwe        Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+ PROCEDURE submit_release_hold_report(
+  p_batch_id IN VARCHAR2,
+  p_org_id   IN NUMBER );
+ 
+
+
+
+
+
+ /* end version 1.8 CR 2499 */
+  /* ----------------------------------------------------------------------------------------
+  * insert_invoice_spec_p
+  *
+  *   Function     : insert_invoice_spec_p
+  *   description   : inserts the records in invoice specification tables
+  *   scope         : public
+  *   arguments
+  *        in                    : p_order_head_rec : Order Header Record
+  *                                p_order_line_rec : Order Line Record
+  *                                p_inv_spec_rec : Invoice Specification details
+  *                                p_orig_sys_document_ref : Order Reference
+  *                                p_line_number : Order Line ID
+  *                                p_status_code : Status of procedure
+  *
+  *
+  *        in/out                :
+  *
+  *        out                   : p_error_message : Error Message
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  28.09.2016        Vedangi Bagwe        Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+ PROCEDURE insert_invoice_spec_p(
+      p_order_head_rec        IN xxcu_ont_create_order_parser.orderhead_rec,
+      p_order_line_rec        IN xxcu_ont_create_order_parser.orderline_rec,
+      p_inv_spec_rec          IN xxcu_ont_create_order_parser.inv_spec_rec,
+      p_orig_sys_document_ref IN VARCHAR2,
+      p_line_number           IN VARCHAR2,
+      p_order_number          IN NUMBER,
+      p_status_code           IN OUT NUMBER,
+      p_error_message OUT VARCHAR2);
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * createorderline_interface
+  *
+  *   Function      : createorderline_interface
+  *   description   : Will  create an orderline if the item exists on the spesific header_id wich is inparameter.
+  *   scope         : public
+  *   arguments
+  *        in                    : p_order_line_rec : Order Line details
+  *                                p_header_id  : Header Id
+  *                                p_orig_sys_document_ref : Order Reference
+  *                                p_curr_code : Currency Code
+  *                                p_agreement_num : Sales Agreement Number
+  *                                p_cust_id : Customer Account ID
+  *                                p_org_id : Operating Unit ID
+  *                                p_pricing_date : Pricing Date of Order
+  *                                p_order_type : Order type
+  *        in/out                : p_status_code : Interface status code
+  *                                p_num_orderlines : Number of order lines inserted
+  *                                p_orig_sys_line_ref : Order Line Reference
+  *        out                   : p_error_message : Error Message if any
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+  PROCEDURE createorderline_interface(
+      p_order_head_rec        IN xxcu_ont_create_order_parser.orderhead_rec,
+      p_order_line_rec        IN xxcu_ont_create_order_parser.orderline_rec,
+      p_header_id             IN NUMBER,
+      p_orig_sys_document_ref IN VARCHAR2,
+      p_curr_code     VARCHAR2,
+      p_agreement_num VARCHAR2,
+      p_cust_id       NUMBER,
+      p_status_code       IN OUT NUMBER,
+      p_num_orderlines    IN OUT NUMBER,
+      p_orig_sys_line_ref IN OUT VARCHAR2 ,
+      p_org_id            IN NUMBER,
+      p_pricing_date DATE,
+      p_order_type IN VARCHAR2,
+      p_error_message OUT VARCHAR2); --ADDED by Snehal For CR1320
+ 
+
+
+
+
+
+
+ /* ----------------------------------------------------------------------------------------
+  * createorderhead_interface
+  *
+  *   Function      : createorderhead_interface
+  *   description   : creates the ordreheader, called from the function createorder. Uses necesary fields to create the header.
+  *   scope         : public
+  *   arguments
+  *        in                    : p_order_head_rec : Order Header details
+  *                                p_batch_id  : Batch Id
+  *
+  *        in/out                : p_status_code : Interface status code
+  *                                p_num_orderheaders : Number of order headers inserted
+  *        out                   : p_error_message : Error Message if any
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+
+  FUNCTION createorderhead_interface(
+      p_order_head_rec   IN xxcu_ont_create_order_parser.orderhead_rec,
+      p_batch_id         IN VARCHAR2,
+      p_status_code      IN OUT NUMBER,
+      p_num_orderheaders IN OUT NUMBER,
+      p_amount           IN NUMBER,
+      p_error_message OUT VARCHAR2)
+    RETURN VARCHAR2;
+
+
+
+
+
+
+
+  /*Version 1.3 added get_currencycode part of change artf4774289  */
+  /* ----------------------------------------------------------------------------------------------------------
+  * get_currencycode
+  *
+  *   function     : get_currencycode
+  *   description   : Get the invoice currency code
+  *
+  *
+  *   arguments
+  *        in       : p_cust_id : Cust Account ID
+  *                   p_org_id : Operating Unit ID
+  *
+  *        return   : p_currency
+  *
+  *
+  *  Date       Author         Description
+  *  ---------  ---------      -------------------------------------------------------
+  *  26.04.2016 Vedangi        Created
+  *
+  *-----------------------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+ FUNCTION get_currencycode(
+      p_cust_id IN NUMBER,
+      p_org_id  IN NUMBER)
+    RETURN VARCHAR2;
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * reconciliation
+  *
+  *   Procedure      : reconciliation
+  *   description   : This function will update the custome table with all updated information at header and line level
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batchid : Batch ID
+  *                                p_batchmessagecount : Message Count
+  *                                p_batchnototal : number of orders in batch
+  *                                p_line_count : line count
+  *                                p_batchdate : Batch Date
+  *                                p_orderlinetotal : Total number of orderlines in batch
+  *                                p_maximumorderdate : Maximum order date in a batch
+  *                                p_minimumorderdate : Minimum order date in a batch
+  *                                p_orderlinesmessage : Number of orderlines in one message
+  *                                p_headers_agg : Aggregate Head
+  *                                p_lines_agg : Aggregate Line
+  *                                p_tot_msg : total number of messages in a batch
+  *        in/out                : p_status_code : Interface status code
+  *
+  *        out                   : p_finish_status : Finish status
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+
+
+PROCEDURE reconciliation(
+      p_batchid           IN VARCHAR2 ,
+      p_batchmessagecount IN NUMBER,
+      p_batchnototal      IN NUMBER,
+      p_line_count        IN NUMBER,
+      p_batchdate         IN DATE,
+      p_orderlinetotal    IN NUMBER,
+      p_maximumorderdate  IN DATE,
+      p_minimumorderdate  IN DATE ,
+      p_orderlinesmessage IN NUMBER,
+      p_headers_agg       IN NUMBER,
+      p_lines_agg         IN NUMBER,
+      p_tot_msg NUMBER,---version 1.5----
+      p_finish_status OUT BOOLEAN,
+      p_status_code IN OUT NUMBER );
+ 
+
+
+
+
+
+
+
+ /* ----------------------------------------------------------------------------------------
+  * initialize_variables
+  *
+  *   Procedure      : initialize_variables
+  *   description   : Initialize context and variables
+  *   scope         : public
+  *   arguments
+  *        in                    : p_org_id : Operating Unit ID
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+  PROCEDURE initialize_variables(
+      p_org_id NUMBER);
+
+
+
+
+
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * getheader_id
+  *
+  *   Function      : getheader_id
+  *   description   : Returns the order header id
+  *   scope         : public
+  *   arguments
+  *        in                    : p_customer_no : Customer Number
+  *                                p_order_ref_no :  Order Reference
+  *
+  *        in/out                :
+  *
+  *        out                   : p_version_number : version number
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+
+ FUNCTION getheader_id(
+      p_customer_no  IN VARCHAR2,
+      p_order_ref_no IN VARCHAR2,
+      p_org_id       IN NUMBER,
+      p_version_number OUT NUMBER)
+    RETURN NUMBER;
+
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * getpayment_term
+  *
+  *   Procedure     : getpayment_term
+  *   description   : Returns Payment Term ID
+  *   scope         : public
+  *   arguments
+  *        in                    : p_curr_code : Currency Code
+  *                                p_org_id : Operating Unit ID
+  *                                p_agreement_num : Sales Agreement Number
+  *                                p_cust_id : Customer Account ID
+  *                                 p_payment_term  : Payment Term
+  *                                 p_order_source : Order Source
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  *  16.02.2018        Vedangi Bagwe         CR 4813
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+
+ FUNCTION getpayment_term(
+      p_org_id        NUMBER,
+      p_curr_code     VARCHAR2,
+      p_agreement_num VARCHAR2,
+      p_cust_id       NUMBER,
+      p_payment_term  VARCHAR2-- CR 4813
+      ,
+      p_order_source VARCHAR2 )
+    RETURN NUMBER;
+  
+
+
+
+
+
+
+/* ----------------------------------------------------------------------------------------
+  * getinventory_item_id
+  *
+  *   Function      : getinventory_item_id
+  *   description   : Returns the inventory item id
+  *   scope         : public
+  *   arguments
+  *        in                    : p_inventory_number : Item Number
+  *                                p_order_source :  Order Source
+  *                                p_order_type : Order Type
+  *                                p_org_id : Operating Unit ID
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+ FUNCTION getinventory_item_id(
+      p_inventory_number IN VARCHAR2,
+      p_order_source     IN VARCHAR2, --added for CR 1320
+      p_order_type       IN VARCHAR2,
+      p_org_id NUMBER)
+    RETURN NUMBER;
+
+
+
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * getinventory_number
+  *
+  *   Function      : getinventory_number
+  *   description   : Returns the inventory item number
+  *   scope         : public
+  *   arguments
+  *        in                    : p_inventory_item_id : Inventory Item ID
+  *                                p_org_id : Operating Unit ID
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+
+
+ FUNCTION getinventory_number(
+      p_source            IN VARCHAR2,
+      p_order_type        IN VARCHAR2,
+      p_inventory_item_id IN NUMBER,
+      p_org_id NUMBER)
+    RETURN VARCHAR2;
+
+
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * get_transaction_type_id
+  *
+  *   Function      : get_transaction_type_id
+  *   description   : Returns the transaction_type_id for order type
+  *   scope         : public
+  *   arguments
+  *        in       p_order_source  IN VARCHAR2,
+  p_order_type       IN VARCHAR2,
+  p_org_id NUMBER
+  *
+  *        in/out                :
+  *
+  *        out          :x_status_code OUT   NUMBER
+  x_error_message OUT VARCHAR2
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  09.12.2015       Kavita Chaurasia     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+
+
+
+
+  FUNCTION get_transaction_type_id(
+      p_order_source IN VARCHAR2,
+      p_order_type   IN VARCHAR2,
+      p_org_id       IN NUMBER,
+      x_status_code OUT NUMBER,
+      x_error_message OUT VARCHAR2 )
+    RETURN NUMBER;
+
+
+
+
+
+
+
+
+
+
+  /* ----------------------------------------------------------------------------------------
+  * getcustomer_id
+  *
+  *   Function      : getcustomer_id
+  *   description   : Returns the Customer Account ID
+  *   scope         : public
+  *   arguments
+  *        in                    : p_customer_no : Customer Account Number
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+
+
+
+FUNCTION getcustomer_id(
+      p_customer_no IN VARCHAR2)
+    RETURN NUMBER;
+ 
+
+
+
+
+
+
+
+ /* ===========================================================================================
+  Function    : getline_id_source_exists
+  Description :
+  Created date: 23 Dec 2015
+  Author      : Rahul Kumar Singh
+  Version     : 0.1
+  Changehistory
+  Date         Name               Description
+  =============================================================================================== */
+
+
+
+
+
+
+
+
+
+FUNCTION getline_id_source_exists (p_line_id_source IN VARCHAR2, p_source IN VARCHAR2)
+  RETURN BOOLEAN;
+
+  /* ----------------------------------------------------------------------------------------
+  * getline_id
+  *
+  *   Function      : getline_id
+  *   description   : Returns the Order Line ID
+  *   scope         : public
+  *   arguments
+  *        in                    : p_header_id : Order Header ID
+  *                                p_orig_sys_line_ref : Order Line Reference
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+ FUNCTION getline_id(
+      p_header_id         IN NUMBER,
+      p_orig_sys_line_ref IN VARCHAR2,
+      p_org_id            IN NUMBER)
+    RETURN NUMBER;
+ 
+
+
+
+
+
+
+
+
+
+ /* ===========================================================================================
+  Function    : getblanketnumber
+  Description :
+  Created date: 23 Dec 2015
+  Author      : Rahul Kumar Singh
+  Version     : 0.1
+  Changehistory
+  Date              Name               Description
+  20-jAN-2016   Rahul Singh             Commented out this section as field is coming from source
+  =============================================================================================== */
+
+
+
+
+
+
+
+
+FUNCTION getblanketnumber(
+  p_customer_id IN NUMBER,
+  p_dato        IN DATE,
+  p_order_type  IN VARCHAR2)
+  RETURN NUMBER;*/
+ 
+
+
+
+
+
+
+
+
+
+ /* ----------------------------------------------------------------------------------------
+  * getsiteuseid
+  *
+  *   Function      : getsiteuseid
+  *   description   : Returns the Site Use Id
+  *   scope         : public
+  *   arguments
+  *        in                    : p_customer_id : Customer Account ID
+  *                                p_site_use_code : Site Use Code (BILL_TO or SHIP_TO)
+  *                                p_org_id : Operating Unit ID
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+ FUNCTION getsiteuseid(
+      p_customer_id   IN NUMBER,
+      p_site_use_code IN VARCHAR2,
+      p_org_id        IN NUMBER)
+    /*Defect # 160*/
+    RETURN NUMBER;
+ 
+
+
+
+
+
+
+
+
+
+
+ /* ===========================================================================================
+  Function    : getOrderTypeId
+  Description :
+  Created date: 23 Dec 2015
+  Author      : Rahul Kumar Singh
+  Version     : 0.1
+  Changehistory
+  Date         Name               Description
+  =============================================================================================== */
+ 
+
+
+
+
+
+FUNCTION getordertypeid(
+  p_name IN VARCHAR2)
+  RETURN NUMBER;*/
+
+
+
+
+ ----------------------------------------------------------------------------------------
+  * getordersourceid
+  *
+  *   Function      : getordersourceid
+  *   description   : Returns the Order Source Id
+  *   scope         : public
+  *   arguments
+  *        in                    : p_name : Order Source Name (Source System Name)
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+
+FUNCTION getordersourceid(
+      p_name IN VARCHAR2)
+    RETURN NUMBER;
+
+
+
+
+
+
+
+
+
+
+
+ ----------------------------------------------------------------------------------------
+  * getpricelistid
+  *
+  *   Function      : getpricelistid
+  *   description   : Returns the Price List Id
+  *   scope         : public
+  *   arguments
+  *        in                    : p_name : Currency Code
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+
+
+  FUNCTION getpricelistid(
+      p_name IN VARCHAR2)
+    RETURN NUMBER;
+  
+
+
+
+
+
+ ----------------------------------------------------------------------------------------
+  * get_orig_sys_document_ref
+  *
+  *   Function      : get_orig_sys_document_ref
+  *   description   : Returns the Order Reference
+  *   scope         : public
+  *   arguments
+  *        in                    : p_header_id : Order Header ID
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+ 
+
+
+
+
+
+
+
+ FUNCTION get_orig_sys_document_ref(
+      p_header_id IN NUMBER)
+    RETURN VARCHAR2;
+  
+
+
+
+
+
+
+
+/* start version 1.8 CR 2499 and defect 2454 */
+  /* start defect 3310 */
+  /* ----------------------------------------------------------------------------------------
+  * submit_order_import_request
+  *
+  *   Procedure     : submit_order_import_request
+  *   description   : Submits Order Import Request
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batch_id : Batch ID
+  *                                p_org_id : Operating Unit ID
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+
+
+PROCEDURE submit_order_import_request(
+      p_batch_id     IN VARCHAR2,
+      p_orig_sys_ref IN VARCHAR2,
+      p_org_id NUMBER);
+
+
+
+
+
+
+
+
+  /* end defect 3310 */
+  /* end veersion 1.8 CR 2499 and defect 2454 */
+  /* ----------------------------------------------------------------------------------------
+  * update_batch_status
+  *
+  *   Procedure     : update_batch_status
+  *   description   : Updates Batch Status in XXCU_ONT_INT_ORDER_BATCH
+  *   scope         : public
+  *   arguments
+  *        in                    : p_batchid : Batch ID
+  *                                p_status : Status
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+  
+
+
+
+
+
+
+
+
+
+PROCEDURE update_batch_status(
+      p_batchid IN VARCHAR2,
+      p_status  IN VARCHAR2) ;
+ 
+
+
+
+
+
+
+
+
+ /* ----------------------------------------------------------------------------------------
+  * get_config_value
+  *
+  *   Function     : get_config_value
+  *   description   : Returns the configuration values
+  *   scope         : public
+  *   arguments
+  *        in                    : p_config_name : Configuration Name
+  *
+  *
+  *        in/out                :
+  *
+  *        out                   :
+  *
+  *  Date               Author              Description
+  *  ---------         -------------        -------------------------------------------------------
+  *  23.12.2015        Rahul Kumar Singh     Created
+  ----------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+
+
+
+  FUNCTION get_config_value(
+      p_config_name IN VARCHAR2)
+    RETURN VARCHAR2;
+END xxcu_ont_create_order_pkg;
